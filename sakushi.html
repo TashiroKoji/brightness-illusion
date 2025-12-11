@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>Brightness Illusion Demo</title>
+<style>
+    body {
+        margin: 0;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        font-family: "Helvetica Neue", Arial, sans-serif;
+    }
+
+    /* 横方向の黒→白グラデーション */
+    #gradient {
+        position: relative;
+        flex: 1;
+        width: 100%;
+        background: linear-gradient(to right, rgb(0,0,0), rgb(255,255,255));
+    }
+
+    /* ドラッグ可能な正方形ブロック */
+    #block {
+        position: absolute;
+        width: 15vh;   /* 高さベースの正方形 */
+        height: 15vh;
+        top: calc(50% - 7.5vh);
+        cursor: grab;
+        border: none;
+        box-sizing: border-box;
+        user-select: none;
+    }
+</style>
+</head>
+<body>
+
+<div id="gradient">
+    <div id="block"></div>
+</div>
+
+<script>
+(function() {
+    const gradient = document.getElementById("gradient");
+    const block = document.getElementById("block");
+
+    const gradRect = gradient.getBoundingClientRect();
+    const blockRect = block.getBoundingClientRect();
+
+    const T = 3;           // 明度一致とみなす閾値（小さいほど厳密）
+    const BLOCK_GRAY = 128; // ブロックの固定明度
+    const ARROW_STEP = 10;  // 矢印キーで動かす距離(px)
+
+    /* 初期位置（中央）にブロックを配置 */
+    const initialX = gradRect.width / 2 - blockRect.width / 2;
+    block.style.left = initialX + "px";
+
+    /* 指定された X 座標に対して明度（0〜255）を返す線形関数 */
+    function getBrightnessAtX(x) {
+        const ratio = Math.min(Math.max(x / gradRect.width, 0), 1);
+        return Math.round(ratio * 255);
+    }
+
+    /* ブロックの見た目を更新する関数 */
+    function updateBlockStyle() {
+        const blockRect = block.getBoundingClientRect();
+        const centerX = blockRect.left + blockRect.width / 2 - gradRect.left;
+        const bgL = getBrightnessAtX(centerX);
+        const blockL = BLOCK_GRAY;
+
+        block.style.backgroundColor = `rgb(${blockL},${blockL},${blockL})`;
+
+        const diff = Math.abs(blockL - bgL);
+
+        if (diff <= T) {
+            // 境界線を極細で一時的に表示（黒でも白でもよい）
+            block.style.border = "1px solid rgba(0,0,0,0.4)";
+        } else {
+            block.style.border = "none";
+        }
+    }
+
+    /* ドラッグ & ドロップ処理 */
+    let dragging = false;
+    let offsetX = 0;
+
+    function startDrag(e) {
+        dragging = true;
+        block.style.cursor = "grabbing";
+        const blockRect = block.getBoundingClientRect();
+        offsetX = e.clientX - blockRect.left;
+    }
+
+    block.addEventListener("mousedown", startDrag);
+    gradient.addEventListener("mousedown", startDrag);
+
+    document.addEventListener("mousemove", (e) => {
+        if (!dragging) return;
+
+        const x = e.clientX - offsetX - gradRect.left;
+        const minX = 0;
+        const maxX = gradRect.width - blockRect.width;
+
+        const clampedX = Math.min(Math.max(x, minX), maxX);
+        block.style.left = clampedX + "px";
+
+        updateBlockStyle();
+    });
+
+    document.addEventListener("mouseup", () => {
+        dragging = false;
+        block.style.cursor = "grab";
+    });
+
+    /* 矢印キーでの移動 */
+    document.addEventListener("keydown", (e) => {
+        if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+        e.preventDefault();
+
+        const gradRect = gradient.getBoundingClientRect();
+        const blockRect = block.getBoundingClientRect();
+        const currentLeft = parseFloat(block.style.left) || 0;
+        const delta = e.key === "ArrowLeft" ? -ARROW_STEP : ARROW_STEP;
+
+        const minX = 0;
+        const maxX = gradRect.width - blockRect.width;
+        const clampedX = Math.min(Math.max(currentLeft + delta, minX), maxX);
+        block.style.left = clampedX + "px";
+        updateBlockStyle();
+    });
+
+    /* 初期描画 */
+    updateBlockStyle();
+})();
+</script>
+
+</body>
+</html>
