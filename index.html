@@ -41,196 +41,6 @@
         display: none;
         pointer-events: none;
     }
-</style>
-</head>
-<body>
-
-<div id="gradient">
-    <div id="block"></div>
-    <div class="preview-block" data-pos="left"></div>
-    <div class="preview-block" data-pos="center"></div>
-    <div class="preview-block" data-pos="right"></div>
-</div>
-
-<script>
-(function() {
-    const gradient = document.getElementById("gradient");
-    const block = document.getElementById("block");
-    const previewBlocks = Array.from(document.querySelectorAll(".preview-block"));
-
-    const gradRect = gradient.getBoundingClientRect();
-    const blockRect = block.getBoundingClientRect();
-
-    const T = 3;           // 明度一致とみなす閾値（小さいほど厳密）
-    const BLOCK_GRAY = 128; // ブロックの固定明度
-    const ARROW_STEP = 10;  // 矢印キーで動かす距離(px)
-    let previewMode = false;
-
-    /* 初期位置（中央）にブロックを配置 */
-    const initialX = gradRect.width / 2 - blockRect.width / 2;
-    block.style.left = initialX + "px";
-
-    /* 指定された X 座標に対して明度（0〜255）を返す線形関数 */
-    function getBrightnessAtX(x) {
-        const ratio = Math.min(Math.max(x / gradRect.width, 0), 1);
-        return Math.round(ratio * 255);
-    }
-
-    /* ブロックの見た目を更新する関数 */
-    function updateBlockStyle() {
-        const blockRect = block.getBoundingClientRect();
-        const centerX = blockRect.left + blockRect.width / 2 - gradRect.left;
-        const bgL = getBrightnessAtX(centerX);
-        const blockL = BLOCK_GRAY;
-
-        block.style.backgroundColor = `rgb(${blockL},${blockL},${blockL})`;
-
-        const diff = Math.abs(blockL - bgL);
-
-        if (diff <= T) {
-            // 境界線を極細で一時的に表示（黒でも白でもよい）
-            block.style.border = "1px solid rgba(0,0,0,0.4)";
-        } else {
-            block.style.border = "none";
-        }
-    }
-
-    /* ドラッグ & ドロップ処理 */
-    let dragging = false;
-    let offsetX = 0;
-
-    function startDrag(e) {
-        if (previewMode) return;
-        dragging = true;
-        block.style.cursor = "grabbing";
-        const blockRect = block.getBoundingClientRect();
-        offsetX = e.clientX - blockRect.left;
-    }
-
-    block.addEventListener("mousedown", startDrag);
-    gradient.addEventListener("mousedown", startDrag);
-
-    document.addEventListener("mousemove", (e) => {
-        if (!dragging) return;
-
-        const x = e.clientX - offsetX - gradRect.left;
-        const minX = 0;
-        const maxX = gradRect.width - blockRect.width;
-
-        const clampedX = Math.min(Math.max(x, minX), maxX);
-        block.style.left = clampedX + "px";
-
-        updateBlockStyle();
-    });
-
-    document.addEventListener("mouseup", () => {
-        dragging = false;
-        block.style.cursor = "grab";
-    });
-
-    /* 矢印キーでの移動 */
-    document.addEventListener("keydown", (e) => {
-        if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
-        if (previewMode) return;
-        e.preventDefault();
-
-        const gradRect = gradient.getBoundingClientRect();
-        const blockRect = block.getBoundingClientRect();
-        const currentLeft = parseFloat(block.style.left) || 0;
-        const delta = e.key === "ArrowLeft" ? -ARROW_STEP : ARROW_STEP;
-
-        const minX = 0;
-        const maxX = gradRect.width - blockRect.width;
-        const clampedX = Math.min(Math.max(currentLeft + delta, minX), maxX);
-        block.style.left = clampedX + "px";
-        updateBlockStyle();
-    });
-
-    /* プレビューモード: 左/中央/右に固定ブロックを表示 */
-    function setPreviewPositions() {
-        const grad = gradient.getBoundingClientRect();
-        const blk = block.getBoundingClientRect();
-        const positions = [
-            0,
-            (grad.width - blk.width) / 2,
-            grad.width - blk.width
-        ];
-        const top = grad.height / 2 - blk.height / 2;
-        previewBlocks.forEach((el, idx) => {
-            el.style.left = positions[idx] + "px";
-            el.style.top = top + "px";
-        });
-    }
-
-    function enterPreview() {
-        previewMode = true;
-        dragging = false;
-        setPreviewPositions();
-        previewBlocks.forEach(el => el.style.display = "block");
-    }
-
-    function exitPreview() {
-        previewMode = false;
-        previewBlocks.forEach(el => el.style.display = "none");
-    }
-
-    /* スペースキー長押しでプレビュー表示、離すと解除 */
-    document.addEventListener("keydown", (e) => {
-        if (e.key === " " || e.key === "Spacebar") {
-            if (previewMode) return;
-            e.preventDefault();
-            enterPreview();
-        }
-    });
-
-    document.addEventListener("keyup", (e) => {
-        if (e.key === " " || e.key === "Spacebar") {
-            e.preventDefault();
-            exitPreview();
-        }
-    });<!DOCTYPE html>
-<html lang="ja">
-<head>
-<meta charset="UTF-8">
-<title>Brightness Illusion Demo</title>
-<style>
-    body {
-        margin: 0;
-        height: 100vh;
-        display: flex;
-        flex-direction: column;
-        overflow: hidden;
-        font-family: "Helvetica Neue", Arial, sans-serif;
-    }
-
-    /* 横方向の黒→白グラデーション */
-    #gradient {
-        position: relative;
-        flex: 1;
-        width: 100%;
-        background: linear-gradient(to right, rgb(0,0,0), rgb(255,255,255));
-    }
-
-    /* ドラッグ可能な正方形ブロック */
-    #block {
-        position: absolute;
-        width: 15vh;   /* 高さベースの正方形 */
-        height: 15vh;
-        top: calc(50% - 7.5vh);
-        cursor: grab;
-        border: none;
-        box-sizing: border-box;
-        user-select: none;
-    }
-
-    .preview-block {
-        position: absolute;
-        width: 15vh;
-        height: 15vh;
-        background: rgb(128,128,128);
-        display: none;
-        pointer-events: none;
-    }
 
     #instructionBox {
         position: fixed;
@@ -248,21 +58,6 @@
         z-index: 10;
     }
 
-    #instructionClose {
-        position: absolute;
-        top: 6px;
-        right: 8px;
-        border: none;
-        background: transparent;
-        font-size: 16px;
-        cursor: pointer;
-        padding: 4px;
-        line-height: 1;
-    }
-
-    #instructionClose:focus {
-        outline: 1px solid #aaa;
-    }
 </style>
 </head>
 <body>
@@ -275,7 +70,6 @@
 </div>
 
 <div id="instructionBox">
-    <button id="instructionClose" aria-label="閉じる">X</button>
     <div>
         128のグレーの正方形を左右に動かせます。ドラッグまたは矢印キーで移動し、スペースキーを押している間は左右・中央の3点にプレビューを表示します。
     </div>
@@ -287,7 +81,6 @@
     const block = document.getElementById("block");
     const previewBlocks = Array.from(document.querySelectorAll(".preview-block"));
     const instructionBox = document.getElementById("instructionBox");
-    const instructionClose = document.getElementById("instructionClose");
 
     const gradRect = gradient.getBoundingClientRect();
     const blockRect = block.getBoundingClientRect();
@@ -433,8 +226,6 @@
         instructionBox.style.display = "none";
     }
 
-    instructionClose.addEventListener("click", hideInstruction);
-
     document.addEventListener("mousedown", (e) => {
         if (!instructionVisible) return;
         if (!instructionBox.contains(e.target)) {
@@ -449,13 +240,3 @@
 
 </body>
 </html>
-
-
-    /* 初期描画 */
-    updateBlockStyle();
-})();
-</script>
-
-</body>
-</html>
-
